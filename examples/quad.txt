@@ -1,0 +1,11 @@
+$name quaddama
+$mesh quad
+$useUVs
+$origin 0 0 0
+$skins quad
+$projDir c:/users/lunaran/projects/lunsp2/models/
+$skinDir c:/users/lunaran/projects/lunsp2/skins/
+$flags 8
+
+$file items.mb
+$anim default 0

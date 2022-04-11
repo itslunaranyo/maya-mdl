@@ -1,0 +1,44 @@
+$name knight
+$mesh knight:wholeknight
+$basemesh knight:knightUVs
+//$useUVs
+$skins knight1 knight2 knight3 knight4
+$skinpadding 3
+$origin 0 0 24
+
+$projDir "c:/users/lunaran/projects/lunsp2/"
+$fileDestination "c:/games/quake/lunsp2/progs/src/"
+
+// only header stuff above this line, only files and anims below
+// anim frame ranges are inclusive!
+
+$file newknight3_stand.mb
+$anim stand 1-9
+//9
+$file newknight3_runb.mb
+$anim run 7-8 1-6
+//17
+$file newknight3_runatk2.mb
+$anim runattack 1-11
+//28
+$file newknight3_pains.mb
+$anim pain 13-15
+//31
+$anim painb 1-11
+//42
+$file newknight3_attack.mb
+$anim attackx 1
+$anim attackb 1-10
+//53
+$file newknight3_walk.mb
+$anim walk 1-14
+//67
+$file newknight3_kneelstand.mb
+$anim kneel 8-12
+$anim standing 1-4
+//76
+$file newknight3_deaths.mb
+$anim death 1-10
+//86
+$anim deathb 15-25
+//97
