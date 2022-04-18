@@ -36,6 +36,7 @@ def crossProduct(a, b):
 def magnitude(vec):
 	return math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2])
 
+# ================
 	
 class qcModel:
 	def __init__(self):
@@ -577,7 +578,129 @@ class qcModel:
 		
 		self.writeMDL()
 		
+# ================
+# modifications to QMDL:
+# todo: this SHOULD be a new class that inherits from qmdl.Mdl
 
+class CoordRaw:
+	"""
+	This class stores an uncompressed coordinate before being processed into
+	a compressed mdl.
+	
+	"""
+	def __init__(self):
+		"""Initialise all the class members with valid values."""
+		self.position, self.normal = (0, 0, 0), (0, 0, 0)
+
+	def compress(self, origin, scale):
+		c = Coord()
+		
+		cPos = [0,0,0]
+		for i in xrange(3):
+			cPos[i] = math.floor( (self.position[i] - origin[i]) / scale[i] )
+		c.position = tuple(cPos)
+		c.encode(self.normal)
+		return c
+
+qmdl.Mdl.CoordRaw = CoordRaw
+
+def frame__init(self):
+	"""
+	Initialise all the members
+
+	"""
+	self.bbox_min = qmdl.Mdl.Coord()
+	self.bbox_max = qmdl.Mdl.Coord()
+	self.name = b"nameless"
+	self.vertices = []
+	self.verticesRaw = []	# lunaran change
+
+def frame__calculate_bounds(self):
+	"""
+	Find the compressed bounds of this frame, if none was read from a file.
+	"""
+	
+	boxmin = [999,999,999]
+	boxmax = [-999,-999,-999]
+	for c in self.vertices:
+		for k in xrange(3):
+			boxmin[k] = min(boxmin[k],c.position[k])
+			boxmax[k] = max(boxmax[k],c.position[k])
+	self.bbox_min.position = tuple(boxmin)
+	self.bbox_max.position = tuple(boxmax)
+
+def frame__calculate_bounds_raw(self):
+	"""
+	Return the (uncompressed) bounds of this frame's raw coordinates.
+	"""
+	mins = [999,999,999]
+	maxs = [-999,-999,-999]
+	for v in self.verticesRaw:
+		for k in xrange(3):
+			mins[k] = min(mins[k],v.position[k])
+			maxs[k] = max(maxs[k],v.position[k])
+	return mins, maxs
+
+def frame__compress(self, origin, scale):
+	"""
+	Converts all the raw floating point coordinates in a frame to integerized
+	Coord objects. Frames don't know about other frames, and only the mdl
+	object itself knows the maximum extents of all frames, so the origin and
+	scale parameters which determine how each frame is integerized come from
+	outside as parameters.
+	
+	"""
+	self.vertices = map(lambda x: x.compress(origin,scale), self.verticesRaw)
+	self.calculate_bounds()
+
+qmdl.Mdl.Frame.__init__ = frame__init
+qmdl.Mdl.Frame.calculate_bounds = frame__calculate_bounds
+qmdl.Mdl.Frame.calculate_bounds_raw = frame__calculate_bounds_raw
+qmdl.Mdl.Frame.compress = frame__compress
+
+def framegroup__compress(self, origin, scale):
+	"""
+	Compress all frames in the group.  Since Frames and FrameGroups are stored
+	in the same flat list, FrameGroups must provide a compress() method with
+	an identical signature.
+	
+	"""
+	for frame in self.frames:
+		frame.compress(origin, scale)
+	self.calculate_bounds()
+
+qmdl.Mdl.FrameGroup.compress = framegroup__compress
+
+def calculate_bounds_raw(self):
+	mins, maxs = [999,999,999],[-999,-999,-999]
+	
+	for frame in self.frames:
+		fmin, fmax = frame.calculate_bounds_raw()
+		for i in xrange(3):
+			mins[i] = min(mins[i], fmin[i])
+			maxs[i] = max(maxs[i], fmax[i])
+	
+	return mins, maxs			
+
+def compress(self):
+	boundleg = [0,0,0]
+	scl = [0,0,0]
+
+	mins, maxs = self.calculate_bounds_raw()
+	
+	for i in xrange(3):
+		scl[i] = (maxs[i] - mins[i]) / 255.9;
+		boundleg[i] = max(abs(mins[i]), abs(maxs[i]) )
+
+	self.origin = tuple(self.framesmins)
+	self.scale = tuple(scl)
+	self.boundingradius = magnitude(boundleg)
+
+	for frame in self.frames:
+		frame.compress(self.origin, self.scale)
+
+qmdl.Mdl.calculate_bounds_raw = calculate_bounds_raw
+qmdl.Mdl.compress = compress
 
 # ==============================================================================
 # MESH IMPORT
