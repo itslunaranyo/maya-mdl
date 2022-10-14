@@ -50,7 +50,8 @@ class qcModel:
 
 	def setDefaults(self):
 		self.name = 'model'
-		self.meshes = ['mesh']
+		self.meshes = []
+		self.meshnormals = []
 		self.base = None
 		self.forwardnode = None
 		self.skins = ['default']
@@ -146,13 +147,13 @@ class qcModel:
 	
 	# take the vert positions on a model posed at current time and save them out
 	# returns a 'frame' of the format [ ([vX, vY, vZ], [nX, nY, nZ]), ... ]
-	def parseFrame( self, meshlist, s=None ):
+	def parseFrame( self, s=None ):
 		frame = []
 		
-		for m in meshlist:
-			for vert in cmds.ls( cmds.polyListComponentConversion(m, tv=1), fl=1):
+		for m, nm in zip(self.meshes, self.meshnormals):
+			for vert, nvert in zip(cmds.ls( cmds.polyListComponentConversion(m, tv=1), fl=1), cmds.ls( cmds.polyListComponentConversion(nm, tv=1), fl=1)):
 				vertOrg = cmds.xform(vert, q=1, ws=1, t=1)
-				normal = vertexNormal(vert)
+				normal = vertexNormal(nvert)
 				if s >= 1:
 					# smoke processing
 					vertOrg = map(lambda (x, y): x + y * s, zip(vertOrg, normal))
@@ -192,14 +193,14 @@ class qcModel:
 			cmds.currentTime( frameTime )
 			if self.shady:
 				for s in range(1,6):
-					f = self.parseFrame( self.meshes, s )
+					f = self.parseFrame( s )
 					self.frames.append( (frameLabel + "_" + str(s), f ) )
 				frames += 5
 			else:
 				fwd, framefwd = self.frameForward(fwd)
 			#	fshift = framefwd - round(framefwd)
 		#		self.origin[0] = fshift + oldorg[0]		# bad hack
-				f = self.parseFrame( self.meshes )
+				f = self.parseFrame( )
 				# FIXME: framefwd sometimes shows a cumulative 1 unit error on the last frame of a loop
 		#		self.frames.append( ( frameLabel, f, round(framefwd) ) )
 				self.frames.append( ( frameLabel, f, round(framefwd, 2) ) )
@@ -218,9 +219,9 @@ class qcModel:
 			
 			if self.shady:
 				for s in range(1,6):
-					fg.append( (frameLabel, self.parseFrame( self.meshes, s ), 0 ) )
+					fg.append( (frameLabel, self.parseFrame( s ), 0 ) )
 			else:
-				fg.append( ( frameLabel, self.parseFrame( self.meshes ), 0 ) )
+				fg.append( ( frameLabel, self.parseFrame( ), 0 ) )
 		
 		self.frames.append( (groupName, fg) )
 		return 1
@@ -517,6 +518,10 @@ class qcModel:
 					self.name = tokens[1]
 				elif cmd == "mesh":
 					self.meshes = tokens[1:]
+					if len(self.meshnormals) == 0:
+						self.meshnormals = tokens[1:]
+				elif cmd == "meshnormals":
+					self.meshnormals = tokens[1:]
 				elif cmd == "basemesh":
 					self.base = tokens[1]
 				elif cmd == "forwardnode":
@@ -549,6 +554,9 @@ class qcModel:
 			
 			# TODO: eliminate this requirement - run to EOF twice, do header commands in first pass and these second
 			if (pastHeader == True):
+				if self.meshes == []:
+					self.meshes = ['mesh']
+					self.meshnormals = ['mesh']
 				print("parsing anims")
 				if cmd not in ph_cmds:
 					print("Bad command token '" + cmd + "' outside header on line " + str(linenum))
