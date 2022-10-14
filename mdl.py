@@ -510,7 +510,7 @@ class qcModel:
 			
 			tokens = line.strip("$\r\n").split(" ")
 			cmd = tokens[0]
-			ph_cmds = ["file", "anim", "animgroup"]
+			ph_cmds = ["file", "anim", "animgroup", "set"]
 			
 			if (pastHeader == False):
 				if cmd == "name":
@@ -586,6 +586,9 @@ class qcModel:
 					added = self.parseFrames( self.frameNames(tokens[1:]) )
 					self.totalFrames += added
 					self.framelist.append( added )
+				elif cmd == "set":
+					print("setting " + tokens[1] + " to " + tokens[2])
+					cmds.setAttr(tokens[1],float(tokens[2]))
 				# framelist is a list of frame group sizes so printQCString knows where to loop without
 				# guessing at frame name/number suffixes
 				
