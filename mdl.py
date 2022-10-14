@@ -4,8 +4,8 @@ import maya.cmds as cmds
 import qmdl.mdl as qmdl
 import math, os, struct, imgbmp, shutil
 
-projDir = "c:/users/lunaran/projects/lunsp2/"
-fileDestination = "c:/games/quake/lunsp2/progs/"
+projDir = "c:/projects/lunsp2/"
+fileDestination = "c:/games/quake/lunsp2_dev/progs/"
 
 def JustCopyADamnFile(src, dst):
 	if not os.path.isfile(src):
@@ -61,7 +61,8 @@ class qcModel:
 		self.scale = 1
 
 		self.mdlProjDir = projDir
-		self.mdlSkinDir = projDir
+		self.mdlMayaBinDir = projDir+"models/"
+		self.mdlSkinDir = projDir+"skins/"
 		self.mdlFileDestination = fileDestination		
 		
 		self.shady = False
@@ -206,22 +207,22 @@ class qcModel:
 		self.origin = oldorg
 		return frames
 
-	# create .qc output for a set of frames specified in frameNames
-	def parseFrameGroup( self, frameNames ):
-		fg = qmdl.Mdl.FrameGroup()
+	# parse the set of frames specified in frameNames as a frameGroup
+	# appends to self.frames the format (framelabel, [frames])
+	def parseFrameGroup( self, groupName, frameNames ):
+		fg = []
 	
 		for frame in frameNames:
 			frameTime, frameLabel = frame
 			cmds.currentTime( frameTime )
 			
-			fg.duration.append(0.1)
 			if self.shady:
 				for s in range(1,6):
-					fg.frames.append( (frameLabel, self.parseFrame( self.meshes, s ) ) )
+					fg.append( (frameLabel, self.parseFrame( self.meshes, s ), 0 ) )
 			else:
-				fg.frames.append( ( frameLabel, self.parseFrame( self.meshes ) ) )
+				fg.append( ( frameLabel, self.parseFrame( self.meshes ), 0 ) )
 		
-		self.frames.append(fg)
+		self.frames.append( (groupName, fg) )
 		return 1
 
 	def storeFaceVertIndices(self):
@@ -364,13 +365,26 @@ class qcModel:
 		
 		return newFrame
 	
+	def calculateCoordsFrameGroup( self, frameGroup ):
+		name, frames = frameGroup
+		newFrameGroup = qmdl.Mdl.FrameGroup()
+		delay = 0.1
+		for frame in frames:
+			newFrameGroup.duration.append(delay)
+			delay += 0.1
+			newFrameGroup.frames.append(self.calculateCoordsFrame(frame))
+		
+		return newFrameGroup		
+		
 	def calculateCoords( self ):
 		print "compressing vertex coordinates ..."
 		frames = []
 		for frame in self.frames:
-			# TODO: you're packing temporary frame tuples as frames but actual FrameGroup objects
 			# TODO: change qmdl, add raw coordinates?
-			frames.append( self.calculateCoordsFrame(frame) )
+			if len(frame) == 2: # need better way to tell the difference between frame and framegroup but type checking is Bad
+				frames.append( self.calculateCoordsFrameGroup(frame) )
+			else:
+				frames.append( self.calculateCoordsFrame(frame) )
 			
 		return frames
 	
@@ -478,7 +492,9 @@ class qcModel:
 	# open the maya files it lists one by one
 	# convert their posed models to frames in a .mdl
 	def exportScript(self, scriptfilename):
-		scriptfile = open( projDir + "models/" + scriptfilename )
+		path1 = self.mdlMayaBinDir + scriptfilename
+		print("opening", path1)
+		scriptfile = open( path1 )
 		scriptlines = list(scriptfile)
 		scriptfile.close()
 		
@@ -494,6 +510,7 @@ class qcModel:
 			
 			tokens = line.strip("$\r\n").split(" ")
 			cmd = tokens[0]
+			ph_cmds = ["file", "anim", "animgroup"]
 			
 			if (pastHeader == False):
 				if cmd == "name":
@@ -524,7 +541,7 @@ class qcModel:
 					self.mdlSkinDir = self.fixPath(tokens[1])
 				elif cmd.lower() == "filedestination":
 					self.mdlFileDestination = self.fixPath(tokens[1])
-				elif cmd == "file" or cmd == "anim" or cmd == "animgroup":
+				elif cmd in ph_cmds:
 					pastHeader = True
 				else:
 					print("Bad command token '" + cmd + "' in header on line " + str(linenum))
@@ -533,7 +550,7 @@ class qcModel:
 			# TODO: eliminate this requirement - run to EOF twice, do header commands in first pass and these second
 			if (pastHeader == True):
 				print("parsing anims")
-				if cmd != "file" and cmd != "anim" and cmd != "animgroup":
+				if cmd not in ph_cmds:
 					print("Bad command token '" + cmd + "' outside header on line " + str(linenum))
 					return
 			
@@ -562,7 +579,7 @@ class qcModel:
 						baseFrameWritten = True
 				
 				elif cmd == "animgroup":
-					added = self.parseFrameGroup( self.frameNames(tokens[1:]) )
+					added = self.parseFrameGroup( tokens[1], self.frameNames(tokens[1:]) )
 					self.totalFrames += added
 					self.framelist.append( added )
 				elif cmd == "anim":
