@@ -52,6 +52,7 @@ class qcModel:
 		self.name = 'model'
 		self.meshes = []
 		self.meshnormals = []
+		self.forcenormal = '0 0 24'
 		self.base = None
 		self.forwardnode = None
 		self.skins = ['default']
@@ -164,7 +165,10 @@ class qcModel:
 				#vertOrg = [-vertOrg[2], -vertOrg[0], vertOrg[1]]
 				#normal = [-normal[2], -normal[0], normal[1]]
 				vertOrg = self.quakeSpace(vertOrg)
-				normal = self.quakeSpace(normal)
+				if len(self.forcenormal) == 3:
+					normal = self.forcenormal;
+				else:
+					normal = self.quakeSpace(normal)
 				
 				# scale, then shift (so feet stay on the ground) to origin-relative coordinates
 				vertOrg = map(lambda (x,y): x*self.scale-y, zip(vertOrg,self.origin))
@@ -522,6 +526,8 @@ class qcModel:
 						self.meshnormals = tokens[1:]
 				elif cmd == "meshnormals":
 					self.meshnormals = tokens[1:]
+				elif cmd == "forcenormal":
+					self.forcenormal = map(float,tokens[1:4])
 				elif cmd == "basemesh":
 					self.base = tokens[1]
 				elif cmd == "forwardnode":
@@ -569,7 +575,7 @@ class qcModel:
 					if currentFile != neededFile:
 						print ("opening " + neededFile)
 						try:
-							mayaScene = cmds.file(self.mdlProjDir + tokens[1], f=1, options="v=0", o=1)
+							mayaScene = cmds.file(neededFile, f=1, options="v=0", o=1)
 						except RuntimeError:
 							raise Exception(neededFile + " could not be opened for some bullshit reason")
 						
