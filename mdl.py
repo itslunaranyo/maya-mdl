@@ -46,7 +46,10 @@ class qcModel:
 	def __init__(self, scriptFile):
 		self.model = qmdl.Mdl()
 		self.setDefaults()
-		self.exportScript(scriptFile)
+		try:
+			self.exportScript(scriptFile)
+		except IOError as e:
+			print "FILE ERROR ({0}) {1}: \"{2}\"".format(e.errno, e.strerror, e.filename)
 
 	def setDefaults(self):
 		self.name = 'model'
@@ -577,18 +580,24 @@ class qcModel:
 						try:
 							mayaScene = cmds.file(neededFile, f=1, options="v=0", o=1)
 						except RuntimeError:
-							raise Exception(neededFile + " could not be opened for some bullshit reason")
+							raise Exception(neededFile + " could not be opened by Maya")
 						
 					if not baseFrameWritten:
 						self.readSkins()		
 						if self.uvbase:
 							if self.base:
 								raise Exception("export script can't have both basemesh and baseUVs")
-							self.parseBaseUV()
+							try:
+								self.parseBaseUV()
+							except RuntimeError:
+								raise Exception("failed getting base UVs")
 						else:
 							if not self.base:
 								raise Exception("export script missing both basemesh and baseUVs")
-							self.parseBase()
+							try:
+								self.parseBase()
+							except RuntimeError:
+								raise Exception("failed getting UVs from basemesh")
 							
 						baseFrameWritten = True
 				
