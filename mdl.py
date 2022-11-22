@@ -439,7 +439,12 @@ class qcModel:
 		# if you save the file properly, this works 100% of the time, and if you don't you
 		# get utter garbage with no warnings glhf
 		for skin in self.skins:
-			skfile = open(self.mdlSkinDir + skin + ".bmp","r")
+			skpath, skext = os.path.splitext(skin)
+			skin = skpath + ".bmp"
+			if os.path.isabs(skin):
+				skfile = open(skin,"r")
+			else:
+				skfile = open(self.mdlSkinDir + skin, "r")
 			skimg = imgbmp.imgBMP()
 			skimg.load(skfile)
 			if self.model.skinwidth == 0 or (self.model.skinwidth == skimg.width and self.model.skinheight == skimg.height):
@@ -573,8 +578,12 @@ class qcModel:
 			
 				if cmd == "file":
 					currentFile = cmds.file(q=1,sn=1).lower()
-					neededFile = (self.mdlProjDir + tokens[1]).lower()
-					print(currentFile, "\n", neededFile)
+											
+					if os.path.isabs(tokens[1]):
+						neededFile = (tokens[1]).lower()
+					else:
+						neededFile = (self.mdlProjDir + tokens[1]).lower()
+
 					if currentFile != neededFile:
 						print ("opening " + neededFile)
 						try:
