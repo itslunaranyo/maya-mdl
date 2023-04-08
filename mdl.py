@@ -189,7 +189,6 @@ class qcModel:
 		frames = 0
 		fwd = 0			# total amount model has moved off the origin on mdl-x/mb-z, ROUNDED
 		framefwd = 0	# difference in fwd from last frame, ROUNDED
-		fshift = 0.0	# sub-unit amount the model has to be shifted if the forwards are scaled
 		f = None
 		
 		for frame in frameNames:
@@ -205,11 +204,8 @@ class qcModel:
 				frames += 5
 			else:
 				fwd, framefwd = self.frameForward(fwd)
-			#	fshift = framefwd - round(framefwd)
-		#		self.origin[0] = fshift + oldorg[0]		# bad hack
 				f = self.parseFrame( )
 				# FIXME: framefwd sometimes shows a cumulative 1 unit error on the last frame of a loop
-		#		self.frames.append( ( frameLabel, f, round(framefwd) ) )
 				self.frames.append( ( frameLabel, f, round(framefwd, 2) ) )
 				frames += 1
 		self.origin = oldorg
@@ -538,20 +534,14 @@ class qcModel:
 					self.forcenormal = map(float,tokens[1:4])
 				elif cmd == "basemesh":
 					self.base = tokens[1]
-				elif cmd == "forwardnode":
-					self.forwardnode = tokens[1]
 				elif cmd == "useuvs" or cmd == "useUVs":
 					self.uvbase = True
-				elif cmd == "scale":
-					self.scale = float(tokens[1])
 				elif cmd == "skins":
 					self.skins = tokens[1:]
 				elif cmd == "skinpadding":
 					self.skinpadding = int(tokens[1])
 				elif cmd == "shady":
 					self.shady = True
-				elif cmd == "origin":
-					self.origin = map(float,tokens[1:4])
 				elif cmd == "flags":
 					self.SetFlags(tokens[1])
 				elif cmd.lower() == "projdir":
@@ -560,6 +550,12 @@ class qcModel:
 					self.mdlSkinDir = self.fixPath(tokens[1])
 				elif cmd.lower() == "filedestination":
 					self.mdlFileDestination = self.fixPath(tokens[1])
+				elif cmd == "origin":
+					self.origin = map(float,tokens[1:4])
+				elif cmd == "forwardnode":
+					self.forwardnode = tokens[1]
+				elif cmd == "scale":
+					self.scale = float(tokens[1])
 				elif cmd in ph_cmds:
 					pastHeader = True
 				else:
@@ -572,7 +568,13 @@ class qcModel:
 					self.meshes = ['mesh']
 					self.meshnormals = ['mesh']
 				print("parsing anims")
-				if cmd not in ph_cmds:
+				if cmd == "origin":
+					self.origin = map(float,tokens[1:4])
+				elif cmd == "forwardnode":
+					self.forwardnode = tokens[1]
+				elif cmd == "scale":
+					self.scale = float(tokens[1])
+				elif cmd not in ph_cmds:
 					print("Bad command token '" + cmd + "' outside header on line " + str(linenum))
 					return
 			
