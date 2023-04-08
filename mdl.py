@@ -466,12 +466,25 @@ class qcModel:
 				framestr += framename + " "
 				
 				fwdstr = ""
-				if (self.forwardnode is not None):
-					if (framefwd < 0):
+				if self.forwardnode is not None && framefwd != 0:
+					if framefwd < 0:
 						framefwd = abs(framefwd)
-						fwdstr = "ai_forward(" + str(framefwd) + ");"
-					elif (framefwd > 0):
-						fwdstr = "ai_back(" + str(framefwd) + ");"
+						if "run" in framename:
+							fwdstr = "ai_run"
+						elif "walk" in framename:
+							fwdstr = "ai_walk"
+						elif "pain" in framename:
+							fwdstr = "ai_painforward"
+						else:
+							fwdstr = "ai_forward"
+					elif framefwd > 0:
+						if "pain" in framename:
+							fwdstr = "ai_pain"
+						else:
+							fwdstr = "ai_back"
+					fwdstr += "(" + str(framefwd) + ");"
+				elif "stand" in framename:
+					fwdstr = "ai_stand();"
 				
 				funcstr += "void()	" + self.name + "_" + framename + " =	[ $" + framename + ",	" + self.name + "_"
 				
