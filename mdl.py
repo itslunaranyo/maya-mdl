@@ -466,7 +466,7 @@ class qcModel:
 				framestr += framename + " "
 				
 				fwdstr = ""
-				if self.forwardnode is not None && framefwd != 0:
+				if (self.forwardnode is not None) and (framefwd != 0):
 					if framefwd < 0:
 						framefwd = abs(framefwd)
 						if "run" in framename:
