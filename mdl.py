@@ -64,6 +64,7 @@ class qcModel:
 		self.flags = 0
 		self.skinpadding = 0
 		self.scale = 1
+		self.grouprate = 0.1
 
 		self.mdlProjDir = projDir
 		self.mdlMayaBinDir = projDir+"models/"
@@ -372,10 +373,10 @@ class qcModel:
 	def calculateCoordsFrameGroup( self, frameGroup ):
 		name, frames = frameGroup
 		newFrameGroup = qmdl.Mdl.FrameGroup()
-		delay = 0.1
+		delay = self.grouprate
 		for frame in frames:
 			newFrameGroup.duration.append(delay)
-			delay += 0.1
+			delay += self.grouprate
 			newFrameGroup.frames.append(self.calculateCoordsFrame(frame))
 		
 		return newFrameGroup		
@@ -567,6 +568,8 @@ class qcModel:
 					self.origin = map(float,tokens[1:4])
 				elif cmd == "forwardnode":
 					self.forwardnode = tokens[1]
+				elif cmd == "grouprate":
+					self.grouprate = float(tokens[1])
 				elif cmd == "scale":
 					self.scale = float(tokens[1])
 				elif cmd in ph_cmds:
@@ -585,6 +588,8 @@ class qcModel:
 					self.origin = map(float,tokens[1:4])
 				elif cmd == "forwardnode":
 					self.forwardnode = tokens[1]
+				elif cmd == "grouprate":
+					self.grouprate = float(tokens[1])
 				elif cmd == "scale":
 					self.scale = float(tokens[1])
 				elif cmd not in ph_cmds:
