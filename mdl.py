@@ -1,6 +1,7 @@
 # ==============================================================================
 
 import maya.cmds as cmds
+import maya.api.OpenMaya as om
 import qmdl.mdl as qmdl
 import math, os, struct, imgbmp, shutil
 
@@ -146,7 +147,7 @@ class qcModel:
 		if (self.forwardnode is None):
 			return 0, 0
 		
-		abs = cmds.xform(self.forwardnode, q=1, ws=1, t=1)[2] * self.scale * -1		# z movement
+		abs = cmds.xform(self.forwardnode, q=1, ws=1, t=1)[2] * self.scale[0] * -1		# z movement
 		rel = abs - fwd
 		return abs, rel
 	
@@ -779,106 +780,76 @@ qmdl.Mdl.compress = compress
 
 # importMDL("d:/games/quake/lunsp2/oldprogs/knight.mdl")
 
-import struct
-
-class vertex:
-	def __init__(self, (v1, v2, v3, normal)):
-		self.v = [v1, v2, v3] # [v1, -v3, v2] # convert to maya's y-up
-		self.normal = normal
-	
-	def resize(self,scale,translate):
+def importFrame(model, frame):
+	coords = []
+	scale = model.scale
+	translate = model.origin
+	for v in frame.vertices:
+		vposraw = v.position
+		vpos = [0,0,0]
 		for i in range(3):
-			self.v[i] = self.v[i] * scale[i] + translate[i]
+			vpos[i] = struct.unpack('B',vposraw[i])[0] * scale[i] + translate[i]
+		coords.append((vpos[1], vpos[2], -vpos[0]))
+	return coords
+
+def importMDL(infile):
+	model = qmdl.mdl.Mdl()
+	with open(infile, "r") as modelfile:
+		model.read(modelfile)
 	
-	def objv(self):
-		return "v " + str(self.v[0]) + " " + str(self.v[2]) + " " + str(-self.v[1]) + "\n"
-
-class frame:
-	def __init__(self, type, vmin, vmax, name):
-		self.mins = vmin
-		self.maxs = vmax
-		self.name = name[0].split('\x00')[0]
-		self.verts = []
+	polyU = [] # flat list of U coordinates
+	polyV = [] # flat list of V coordinates that better correspond to the U coordinates
+	polyUB = [] # onseam offsets to be put at the end of the UV list
+	polyVB = [] # onseam offsets to be put at the end of the UV list
+	backfacemap = {} # remember what vertex index corresponds to what offseam UV index
+	i = 0;
+	j = len(model.vertices);
+	for v in model.vertices:
+		polyU.append( float(v.u) / model.skinwidth )
+		polyV.append( 1 - float(v.v) / model.skinheight )
+		if v.onseam:
+			polyUB.append( float(v.u) / model.skinwidth + 0.5 )
+			polyVB.append( 1 - float(v.v) / model.skinheight )
+			backfacemap[i] = j;
+			j += 1
+		else:
+			backfacemap[i] = i
+		i += 1;
+	polyU += polyUB;
+	polyV += polyVB;
 	
-	def vert(self, v):
-		self.verts.append(v)
-	
-	def resize(self,scale,translate):
-		for v in self.verts:
-			v.resize(scale,translate)
-	
-
-def readFrom(file, pattern):
-	return struct.unpack(pattern, file.read(struct.calcsize(pattern)))
-
-def readVertexFrom(file):
-	return vertex(struct.unpack("4B", file.read(4)))
-
-def importMDL(infile, maxFrames=0):
-	FH = open(infile, 'rb')
-
-	# read header info
-	ident,version = readFrom(FH, "ii")
-	modelscale = readFrom(FH, "3f")
-	modeltranslate = readFrom(FH, "3f")
-	boundingradius = readFrom(FH, "f")
-	eyeposition = readFrom(FH, "3f")
-	skinvals = readFrom(FH, "3i")
-	numVerts,numTris,numFrames = readFrom(FH, "iii")
-	if maxFrames:
-		if maxFrames < numFrames:
-			numFrames = maxFrames
-	synctype, flags, size = readFrom(FH, "iif")
-
-	# skip the textures
-	# TODO: we're assuming no skingroups
-	skinbytes = skinvals[0] * (4 + skinvals[1]*skinvals[2])
-	FH.seek(skinbytes, 1)
-
-	# skip the STs
-	stbytes = numVerts*12
-	FH.seek(stbytes, 1)
-
-	tris = []
-	for i in range(numTris):
-		tris.append(readFrom(FH, "4i"))
-
 	frames = []
-	for i in range(numFrames):
-		fr = frame(readFrom(FH, "i"),readVertexFrom(FH),readVertexFrom(FH),readFrom(FH, "16s"))
-		for j in range(numVerts):
-			fr.vert(readVertexFrom(FH))
+	framenames = []
+	for f in model.frames:
+		if isinstance(f, qmdl.mdl.Mdl.FrameGroup):
+			for fg in f.frames:
+				frames.append(importFrame(model,fg))
+				framenames.append(fg.name)
+		elif isinstance(f, qmdl.mdl.Mdl.Frame):
+			frames.append(importFrame(model,f))
+			framenames.append(f.name)
 
-		fr.resize(modelscale,modeltranslate)
-		frames.append(fr)
-
-	FH.close()
-
-	tempfile = infile + ".obj"
-
-	k = 1
-	for f in frames:
-		OBJ = open(tempfile, 'w')
-		for v in f.verts:
-			OBJ.write(v.objv())
-		
-		for t in tris:
-			OBJ.write("f " + str(t[1]+k) + " " + str(t[2]+k) + " " + str(t[3]+k) + " " + "\n")
-		
-		#k += numVerts
-
-		OBJ.close()
-		cmds.file(tempfile, i=1, type="OBJ", ra=1, rpr=f.name, options="mo=1", pr=1)
+	# list of number of vertices per polygon (hint: it's always 3)
+	vertCounts = [3] * len(model.triangles)
 	
-	os.remove(tempfile)
-
-
-
-
-def uvs2flatverts():
-	for obj in cmds.ls(sl=1,fl=1):
-		uv = cmds.polyListComponentConversion(obj,fv=1,tuv=1)
-		st = cmds.polyEditUV(uv,q=1)
-		xyz = cmds.xform(obj,t=1,q=1)
-		xyzuv = (st[0]*128, st[1]*128, xyz[2])
-		cmds.xform(obj,r=0,ws=1,t=xyzuv)
+	polyTris = []	# list of vertex indices
+	polyUVs = []	# list of UV indices
+	for t in model.triangles:
+		polyTris += t.vertices
+		if t.backface: # this is a front face
+			polyUVs += t.vertices
+		else: # this is a back face
+			for v in t.vertices:
+				polyUVs.append(backfacemap[v])
+	
+	for (f,fn) in zip(frames, framenames):
+		vertices = []	# list of vertex points
+		for v in f:
+			p = om.MPoint(v[0], v[1], v[2])
+			vertices.append(p)
+		meshFn = om.MFnMesh()
+		meshFn.create(vertices, vertCounts, polyTris, polyU, polyV)
+		meshFn.assignUVs(vertCounts, polyUVs, "map1")
+		
+		cmds.rename(om.MFnDagNode(meshFn.parent(0)).name(), fn)
+		cmds.sets(fn,fe="initialShadingGroup")
